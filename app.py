@@ -1,17 +1,38 @@
+"""Streamlit Cloud entry point that shows the same website as viva_server.py.
+
+index.html and its CSS/JS are combined into one page and rendered as a
+Streamlit component. streamlit_bridge.js forwards the page's /api requests
+here, and they are answered by the same handler the web server uses.
+"""
 from __future__ import annotations
 
 import base64
-import hashlib
-import logging
+import json
+from pathlib import Path
+import re
+import tempfile
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from model_inference import TrainedPredictor
-from pdf_report import build_pdf_report
+from viva_server import API_ENDPOINTS, handle_api
 
 
-MAX_UPLOAD_BYTES = 128 * 1024 * 1024
-LOGGER = logging.getLogger(__name__)
+ROOT = Path(__file__).resolve().parent
+COMPONENT_DIR = Path(tempfile.gettempdir()) / "retiscreen_component"
+
+# Hide Streamlit's own page furniture so only the website is visible.
+STREAMLIT_CHROME_CSS = """
+<style>
+header[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"],
+[data-testid="stSidebar"], footer { display: none !important; }
+html, body, .stApp, [data-testid="stMain"] { background: #050607; overflow: hidden; }
+[data-testid="stMainBlockContainer"], .block-container { padding: 0 !important; max-width: none !important; }
+[data-testid="stVerticalBlock"] { gap: 0 !important; }
+iframe { display: block; border: 0; }
+</style>
+"""
 
 
 @st.cache_resource
@@ -19,133 +40,60 @@ def get_predictor() -> TrainedPredictor:
     return TrainedPredictor()
 
 
-def render_analysis() -> None:
-    st.markdown(
-        "<div class='hero'><div><p class='eyebrow'>RETINAL IMAGE ANALYSIS</p>"
-        "<h1>Your retinal image,<br>made easier to understand.</h1>"
-        "<p>Upload a retinal image to see the diabetic retinopathy estimate.</p>"
-        "</div><div class='hero-art'>◎</div></div>",
-        unsafe_allow_html=True,
+@st.cache_resource
+def get_website_component():
+    page = (ROOT / "index.html").read_text(encoding="utf-8")
+    page = re.sub(
+        r'<link rel="stylesheet" href="([\w.-]+\.css)(?:\?[^"]*)?">',
+        lambda match: f"<style>\n{(ROOT / match[1]).read_text(encoding='utf-8')}\n</style>",
+        page,
     )
-    uploaded = st.file_uploader(
-        "Choose a retinal image",
-        type=["jpg", "jpeg", "png"],
-        help="JPEG or PNG, up to 128 MB.",
+    page = re.sub(r'\s*<script src="script\.js[^"]*" defer></script>', "", page)
+    scripts = "".join(
+        f"<script>\n{(ROOT / name).read_text(encoding='utf-8')}\n</script>\n"
+        for name in ("streamlit_bridge.js", "script.js")
     )
-    if uploaded is None:
-        st.info("Choose an image to get started.")
-        return
+    page = page.replace("</body>", scripts + "</body>")
+    COMPONENT_DIR.mkdir(parents=True, exist_ok=True)
+    (COMPONENT_DIR / "index.html").write_text(page, encoding="utf-8")
+    return components.declare_component("retiscreen_website", path=str(COMPONENT_DIR))
 
-    payload = uploaded.getvalue()
-    if len(payload) > MAX_UPLOAD_BYTES:
-        st.error("The image is larger than 128 MB. Choose a smaller JPEG or PNG.")
-        return
-    st.image(payload, caption=uploaded.name, width=360)
 
-    if st.button("Analyze image", type="primary", use_container_width=True):
-        try:
-            with st.spinner("Analyzing image..."):
-                predictor = get_predictor()
-                result = predictor.predict(payload, uploaded.name)
-                st.session_state["analysis_result"] = result
-                st.session_state["analysis_payload"] = payload
-                st.session_state["analysis_upload_hash"] = hashlib.sha256(payload).hexdigest()
-        except Exception as exc:
-            LOGGER.exception("Retinal image analysis failed")
-            st.error(f"Analysis failed: {exc}")
-
-    result = st.session_state.get("analysis_result")
-    if (
-        not result
-        or st.session_state.get("analysis_upload_hash") != hashlib.sha256(payload).hexdigest()
-    ):
-        return
-
-    st.divider()
-    st.subheader("Result")
-    if not result.get("classification_permitted"):
-        st.warning("This image was not graded.")
+def answer_request(request: dict) -> dict:
+    endpoint = request.get("endpoint")
+    if endpoint in API_ENDPOINTS:
+        payload = base64.b64decode(request.get("data", ""))
+        filename = Path(request.get("filename") or "upload.png").name
+        status, body = handle_api(get_predictor(), endpoint, payload, filename)
     else:
-        st.metric("Estimated grade", result["predicted_class"])
-        st.progress(float(result["confidence"]), text=f"Model confidence: {result['confidence']:.1%}")
-        st.caption("This is a research estimate, not a diagnosis.")
-        st.markdown("**Grade probability**")
-        for probability in result["probabilities"]:
-            st.progress(
-                float(probability["probability"]),
-                text=f"{probability['name']}: {probability['probability']:.1%}",
-            )
-
-    for reason in result.get("reasons", []):
-        st.info(reason)
-
-    report = build_pdf_report(result, st.session_state["analysis_payload"])
-    st.download_button(
-        "Download PDF report",
-        data=report,
-        file_name="retinal-analysis-report.pdf",
-        mime="application/pdf",
-    )
-
-    with st.expander("Image-processing steps"):
-        for step in result.get("processing_log", []):
-            st.markdown(
-                f"**{step['number']:02d}. {step['title']}** · "
-                f"{step['status']} · {step['duration_ms']:.0f} ms"
-            )
-            if step.get("details"):
-                st.json(step["details"], expanded=False)
-
-    for visual in result.get("visual_steps", []):
-        encoded = visual.get("image", "").partition(",")[2]
-        if encoded:
-            st.image(
-                base64.b64decode(encoded),
-                caption=visual.get("title", "Processing preview"),
-                width=280,
-            )
+        status, body = 404, {"error": "Unknown endpoint."}
+    if isinstance(body, dict):
+        content_type, raw = "application/json; charset=utf-8", json.dumps(body, separators=(",", ":")).encode("utf-8")
+    else:
+        content_type, raw = "application/pdf", body
+    return {
+        "id": request["id"],
+        "status": status,
+        "content_type": content_type,
+        "body": base64.b64encode(raw).decode("ascii"),
+    }
 
 
 def main() -> None:
     st.set_page_config(
-        page_title="RetiScreen AI",
+        page_title="RetiScreen AI · Retinal image analysis",
         page_icon="👁️",
         layout="wide",
+        initial_sidebar_state="collapsed",
     )
-    st.markdown(
-        """
-        <style>
-        .stApp { background: linear-gradient(145deg, #061311 0%, #101629 55%, #161327 100%); }
-        .block-container { max-width: 1180px; padding-top: 2rem; }
-        .hero { display:flex; justify-content:space-between; align-items:center; gap:2rem;
-                padding:2.3rem; margin:0 0 2rem; border:1px solid #2b5655;
-                border-radius:28px; background:linear-gradient(115deg,#103538,#171c32); }
-        .hero h1 { font-size:clamp(2rem,5vw,3.4rem); line-height:1.08; }
-        .hero p { color:#b4cfcc; }
-        .eyebrow { color:#7fe2c4 !important; font-size:.8rem; letter-spacing:.15em; font-weight:700; }
-        .hero-art { color:#83e5c8; font-size:8rem; text-shadow:0 0 35px #53cbb977; }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.html(STREAMLIT_CHROME_CSS)
 
-    analysis_tab, model_tab = st.tabs(["Image analysis", "About the model"])
-    with analysis_tab:
-        render_analysis()
-    with model_tab:
-        st.title("About the model")
-        st.markdown(
-            """
-            - **Architecture:** EfficientNetB0 with ImageNet transfer learning
-            - **Dataset:** 3,600 usable APTOS images
-            - **Input preparation:** retinal extraction, resize and padding to 224 × 224
-            - **Training:** classifier adaptation followed by selective fine-tuning
-            - **Grades:** No DR, Mild, Moderate, Severe and Proliferative DR
-
-            This research prototype is not a medical device. Results do not replace
-            assessment by a qualified clinician.
-            """
-        )
+    website = get_website_component()
+    request = website(response=st.session_state.get("api_response"), key="website", default=None)
+    if request and request.get("id") != st.session_state.get("api_request_id"):
+        st.session_state["api_request_id"] = request["id"]
+        st.session_state["api_response"] = answer_request(request)
+        st.rerun()
 
 
 if __name__ == "__main__":
