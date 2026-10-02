@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent
 HOST = os.environ.get('HOST', '127.0.0.1')
 PORT = int(os.environ.get('PORT', '8765'))
 ALLOWED = {'index.html', 'styles.css', 'polish.css', 'design.css', 'script.js'}
-PREDICTOR = TrainedPredictor()
+PREDICTOR: TrainedPredictor | None = None
 REJECTION_LOG = ROOT / 'viva_rejections.jsonl'
 
 
@@ -104,6 +104,20 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(500, {'error': 'The image could not be processed. Check the server output for details.'})
 
 
+def running_in_streamlit() -> bool:
+    try:
+        from streamlit.runtime import exists
+    except ImportError:
+        return False
+    return exists()
+
+
 if __name__ == '__main__':
-    print(f'Viva prototype: http://{HOST}:{PORT}', flush=True)
-    ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
+    if running_in_streamlit():
+        # Streamlit Cloud cannot open its own port; show the Streamlit app instead.
+        import app
+        app.main()
+    else:
+        PREDICTOR = TrainedPredictor()
+        print(f'Viva prototype: http://{HOST}:{PORT}', flush=True)
+        ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
