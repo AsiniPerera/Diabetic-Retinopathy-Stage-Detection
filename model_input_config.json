@@ -1,0 +1,26 @@
+{
+  "model_id": "efficientnet_b0.ra_in1k",
+  "pretrained_weights_loaded": false,
+  "resolved_defaults": {
+    "input_size": [
+      3,
+      224,
+      224
+    ],
+    "interpolation": "bicubic",
+    "mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "std": [
+      0.229,
+      0.224,
+      0.225
+    ],
+    "crop_pct": 0.875,
+    "crop_mode": "center"
+  },
+  "project_geometry": "retinal crop + aspect-preserving resize/pad to 224",
+  "normalisation": "(RGB/255 - mean) / std; HWC to CHW"
+}

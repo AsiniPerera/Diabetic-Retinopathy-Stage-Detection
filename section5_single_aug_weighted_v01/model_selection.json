@@ -1,0 +1,20 @@
+{
+  "calibration_used_for_selection": false,
+  "epoch": 12,
+  "run_hash": "d41efe0efa34a0969ad6ccfca274c134036364e8a4504b490a46a3172e36c154",
+  "selection_rule": "highest_validation_QWK_then_macro_F1_then_head",
+  "stage": "finetune",
+  "strategy": "augmentation_and_class_weighted_loss",
+  "test_used": false,
+  "validation": {
+    "accuracy": 0.7783985102420856,
+    "loss": 0.5758988903887445,
+    "macro_f1": 0.6333481393210074,
+    "qwk": 0.851507385175693,
+    "recall_grade_0": 0.9851851851851852,
+    "recall_grade_1": 0.7735849056603774,
+    "recall_grade_2": 0.5306122448979592,
+    "recall_grade_3": 0.5384615384615384,
+    "recall_grade_4": 0.4634146341463415
+  }
+}

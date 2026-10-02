@@ -1,0 +1,39 @@
+{
+  "temperature": 0.8746883623769692,
+  "confidence_min": 0.6462699761714009,
+  "uncertainty_max": 0.10078599619088988,
+  "ready": true,
+  "reason": "Thresholds estimated from calibration predictions.",
+  "checkpoint_sha256": "a625e08de7f56e095cc5d47089935ccae6c7afbdade74604a8bba618a939d660",
+  "dropout_passes": 20,
+  "seed": 42,
+  "quality_counts": {
+    "accepted": 146,
+    "review": 362,
+    "rejected": 0
+  },
+  "method": "Exploratory calibration-derived review thresholds",
+  "quality_passing_calibration_images": 146,
+  "accepted_calibration_images": 108,
+  "apparent_accepted_accuracy": 0.9351851851851852,
+  "confidence_quantile": 0.1,
+  "uncertainty_quantile": 0.9,
+  "quality_configuration": {
+    "analysis_size": 224,
+    "minimum_dimension": 128,
+    "foreground_threshold": 10,
+    "reject_coverage": 0.05,
+    "review_coverage": 0.2,
+    "reject_brightness_low": 15.0,
+    "reject_brightness_high": 240.0,
+    "review_brightness_low": 35.0,
+    "review_brightness_high": 200.0,
+    "reject_sharpness": 5.0,
+    "review_sharpness": 50.0,
+    "review_contrast": 15.0,
+    "glare_value": 230,
+    "glare_saturation": 40,
+    "reject_glare_fraction": 0.15,
+    "review_glare_fraction": 0.05
+  }
+}

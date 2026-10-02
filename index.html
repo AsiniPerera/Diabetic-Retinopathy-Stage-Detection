@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#050607">
+  <meta name="description" content="Local retinal image analysis research prototype.">
+  <title>RetiScreen AI · Retinal image analysis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=20261001c">
+  <link rel="stylesheet" href="polish.css?v=20261001c">
+  <link rel="stylesheet" href="design.css?v=20261002d">
+  <script src="script.js?v=20261002e" defer></script>
+</head>
+<body>
+  <header>
+    <a class="brand" href="/" aria-label="RetiScreen AI home">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <path d="M5 20s5.6-10 15-10 15 10 15 10-5.6 10-15 10S5 20 5 20Z"/>
+        <circle cx="20" cy="20" r="5.2"/>
+        <path d="m24 16 5-5M25 24l5 5"/>
+      </svg>
+      RetiScreen<span>AI</span>
+    </a>
+    <nav class="demo-tabs" role="tablist" aria-label="Demonstration sections">
+    <button id="analysisNav" class="demo-tab active" type="button" role="tab" aria-selected="true" aria-controls="analysisView" data-view="analysis">Analysis</button>
+    <button id="preprocessingNav" class="demo-tab" type="button" role="tab" aria-selected="false" aria-controls="preprocessingView" data-view="preprocessing">Preprocessing</button>
+    <button id="augmentationNav" class="demo-tab" type="button" role="tab" aria-selected="false" aria-controls="augmentationView" data-view="augmentation">Augmentation</button>
+    <button id="modelNav" class="demo-tab" type="button" role="tab" aria-selected="false" aria-controls="modelView" data-view="model">About Model</button>
+  </nav>
+  </header>
+
+  <main>
+    <div id="analysisView" class="tab-view" role="tabpanel" aria-labelledby="analysisNav">
+      <div class="hero">
+        <div class="intro">
+          <p class="eyebrow">RETINAL IMAGE ANALYSIS</p>
+          <h1>Your retinal image,<br><span>made easier to understand.</span></h1>
+          <p>Upload a retinal image to see the diabetic retinopathy estimate and save a PDF report.</p>
+          <div class="hero-points" aria-label="About this analysis">
+            <span><i aria-hidden="true"></i>Private, local analysis</span>
+            <span><i aria-hidden="true"></i>Five-level result scale</span>
+          </div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <span class="retina-orbit"></span>
+          <span class="retina-orbit orbit-middle"></span>
+          <span class="retina-core"></span>
+          <span class="art-point point-one"></span>
+          <span class="art-point point-two"></span>
+          <span class="art-point point-three"></span>
+          <span class="art-caption">RETINAL<br>IMAGING</span>
+        </div>
+      </div>
+      <div class="workspace">
+        <section class="upload-panel" aria-labelledby="uploadTitle">
+          <div class="panel-heading"><span class="step">01</span><h2 id="uploadTitle">Upload image</h2></div>
+          <form id="uploadForm">
+            <label class="dropzone" for="imageFile">
+              <input id="imageFile" type="file" accept="image/jpeg,image/png" required>
+              <span class="upload-symbol" aria-hidden="true">↑</span>
+              <strong id="fileName">Choose a retinal image</strong>
+              <span id="fileHint">JPEG or PNG · up to 128 MB</span>
+            </label>
+            <button id="analyzeButton" type="submit">Analyze image <span aria-hidden="true">→</span></button>
+          </form>
+        </section>
+        <section class="result-panel" aria-labelledby="resultTitle">
+          <div class="panel-heading"><span class="step">02</span><h2 id="resultTitle">Result</h2></div>
+          <div id="emptyState" class="empty-state"><span class="result-symbol" aria-hidden="true">◎</span><h3>Ready when you are</h3><p>Choose an image and select Analyze image.</p></div>
+          <div id="status" role="status" aria-live="polite"></div>
+          <div id="result" hidden>
+            <h3 id="grade"></h3>
+            <div id="confidence" class="confidence-meter" role="img" hidden>
+              <span id="confidenceValue" class="confidence-value"></span>
+              <span class="confidence-caption">confidence</span>
+            </div>
+            <section id="severityScale" class="severity-scale" aria-labelledby="severityTitle" hidden>
+              <h4 id="severityTitle">Your result on the DR severity scale</h4>
+              <p class="severity-description">Green indicates a lower model estimate; red indicates a higher one. The marker shows this image’s level.</p>
+              <ol id="severityStages" class="severity-stages" aria-label="Prototype result levels"></ol>
+            </section>
+          </div>
+          <section id="nonRetinalBlock" class="non-retinal-block" aria-labelledby="nonRetinalTitle" hidden>
+            <div class="non-retinal-head">
+              <span class="non-retinal-icon" aria-hidden="true">⊘</span>
+              <div><p class="non-retinal-kicker">IMAGE NOT GRADED</p><h2 id="nonRetinalTitle">This doesn't look like a retinal photograph</h2></div>
+            </div>
+            <p class="non-retinal-intro">We couldn't confirm this as a colour retinal photograph, so the image was not graded.</p>
+            <p class="non-retinal-foot">Please upload a clear retinal photograph.</p>
+          </section>
+        </section>
+      </div>
+      <section id="resultTools" class="result-tools" aria-label="Result guidance and tools" hidden>
+        <div class="result-actions">
+          <section class="suggestion-card" aria-labelledby="suggestionTitle">
+            <p class="eyebrow">PROTOTYPE GUIDANCE · NOT MEDICAL ADVICE</p>
+            <h2 id="suggestionTitle">Helpful next steps</h2>
+            <ul id="suggestionsList" class="suggestions-list"></ul>
+            <div id="qualityFindings" class="quality-findings" hidden>
+              <strong>Image quality notes</strong>
+              <ul id="qualityReasons"></ul>
+              <p>These are automated image-quality checks, not confirmation that the image is a valid retinal examination.</p>
+            </div>
+          </section>
+          <aside class="report-card">
+            <span class="report-icon" aria-hidden="true">↓</span>
+            <div>
+              <h2>Your result, to keep</h2>
+              <p>Download a PDF with your image, model result, and suggestions.</p>
+            </div>
+            <button id="downloadReport" class="secondary-button" type="button">Download PDF report</button>
+          </aside>
+        </div>
+
+        <section class="chat-card" aria-labelledby="chatTitle">
+          <div class="chat-heading">
+            <span class="chat-avatar" aria-hidden="true">✳</span>
+            <div><p class="eyebrow">IMAGE-GROUNDED Q&amp;A</p><h2 id="chatTitle">Ask about your result</h2></div>
+            <span class="chat-local-label">Answers use this result only</span>
+          </div>
+          <p class="chat-intro">Ask about the displayed estimate, image-quality checks, or how to use this demo. Answers use this image’s recorded results only; they are not medical advice.</p>
+          <div class="chat-prompts" aria-label="Suggested questions">
+            <button type="button" class="prompt-chip" data-question="What does this result mean?">What does this result mean?</button>
+            <button type="button" class="prompt-chip" data-question="Why was my image flagged or rejected?">Why was this flagged?</button>
+            <button type="button" class="prompt-chip" data-question="What should I do next?">What should I do next?</button>
+          </div>
+          <ol id="chatMessages" class="chat-messages" aria-live="polite" aria-relevant="additions"></ol>
+          <form id="chatForm" class="chat-form">
+            <label class="visually-hidden" for="chatQuestion">Ask a question about this result</label>
+            <input id="chatQuestion" name="question" type="text" maxlength="300" placeholder="Ask a question about this result…" autocomplete="off" required>
+            <button type="submit">Ask <span aria-hidden="true">→</span></button>
+          </form>
+        </section>
+      </section>
+    </div>
+
+    <section id="preprocessingView" class="tab-view techniques-view" role="tabpanel" aria-labelledby="preprocessingNav" hidden>
+      <div class="techniques-heading">
+        <h1>Preprocessing Techniques</h1>
+        <p>Scroll through the 15 image steps. Some cards show optional examples for comparison; those previews do not change your result.</p>
+      </div>
+      <ol id="preprocessingGallery" class="image-step-gallery" aria-label="Horizontally scrollable preprocessing evidence" tabindex="0" aria-live="polite">
+        <li class="gallery-empty">Upload and analyze an image to see its preprocessing steps here.</li>
+      </ol>
+      <p id="preprocessingStop" class="gallery-note" hidden></p>
+      <div class="technique-table-wrap">
+        <table class="technique-table">
+          <thead><tr><th>Image step</th><th>What happens</th></tr></thead>
+          <tbody id="preprocessingTechniques"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="augmentationView" class="tab-view techniques-view" role="tabpanel" aria-labelledby="augmentationNav" hidden>
+      <div class="techniques-heading">
+        <h1>Augmentation Techniques</h1>
+        <p>See examples of how the uploaded image can look under training-time transformations. These previews are demonstrations only; the transformed images are not used for this prediction.</p>
+      </div>
+      <div id="augmentationGallery" class="augmentation-gallery" aria-live="polite">
+        <p class="gallery-empty">Upload an image to preview the training-time transformations.</p>
+      </div>
+      <div class="technique-table-wrap">
+        <table class="technique-table augmentation-table">
+          <thead><tr><th>Technique</th><th>Application and justification</th></tr></thead>
+          <tbody id="augmentationTechniques"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="modelView" class="tab-view model-view" role="tabpanel" aria-labelledby="modelNav" hidden>
+      <div class="model-heading">
+        <p class="eyebrow">THE MODEL BEHIND THE ESTIMATE</p>
+        <h1>A closer look at <span>RetiScreen AI</span></h1>
+        <p>Explore the model, dataset, image preparation, training approach, and held-out test results.</p>
+      </div>
+
+      <nav class="model-section-nav" aria-label="Model information">
+        <a href="#model-overview"><span>01</span>Model Overview</a>
+        <a href="#disease-grades"><span>02</span>Disease Grades</a>
+        <a href="#model-dataset"><span>03</span>Dataset</a>
+        <a href="#image-processing"><span>04</span>Image Processing</a>
+        <a href="#model-training"><span>05</span>Model Training</a>
+        <a href="#model-performance"><span>06</span>Performance</a>
+        <a href="#prediction-guide"><span>07</span>Prediction Guide</a>
+      </nav>
+
+      <section class="model-metrics" aria-label="Model performance and dataset highlights">
+        <article class="model-metric"><span class="metric-value">96.8%</span><span class="metric-label"><strong>DR Detection Accuracy</strong>Correctly identifies whether diabetic retinopathy is present.</span></article>
+        <article class="model-metric"><span class="metric-value">75.4%</span><span class="metric-label"><strong>Stage Accuracy</strong>Exact severity grade predicted correctly.</span></article>
+        <article class="model-metric"><span class="metric-value">0.82</span><span class="metric-label"><strong>Agreement Score (QWK)</strong>Strong agreement with clinician grading.</span></article>
+        <article class="model-metric"><span class="metric-value">5</span><span class="metric-label"><strong>Retinopathy Grades</strong>No DR · Mild · Moderate · Severe · Proliferative.</span></article>
+        <article class="model-metric"><span class="metric-value">3,600</span><span class="metric-label"><strong>Retinal Images</strong>APTOS 2019 dataset; tested on 536 unseen images.</span></article>
+      </section>
+      <p class="model-metric-note">Performance metrics are shown as provided for the model evaluation.</p>
+
+      <div class="model-details">
+        <article id="model-overview" class="model-info-card">
+          <span class="model-info-number">01</span>
+          <div><p class="model-info-kicker">ARCHITECTURE</p><h2>Model Overview</h2><p>EfficientNetB0 with ImageNet transfer learning.</p></div>
+        </article>
+        <article id="disease-grades" class="model-info-card">
+          <span class="model-info-number">02</span>
+          <div><p class="model-info-kicker">FIVE-CLASS CLASSIFICATION</p><h2>Disease Grades</h2><p>No DR, Mild, Moderate, Severe and Proliferative DR.</p></div>
+        </article>
+        <article id="model-dataset" class="model-info-card">
+          <span class="model-info-number">03</span>
+          <div><p class="model-info-kicker">APTOS 2019</p><h2>Dataset</h2><p>3,600 usable APTOS images were used for this coursework model.</p></div>
+        </article>
+        <article id="image-processing" class="model-info-card">
+          <span class="model-info-number">04</span>
+          <div><p class="model-info-kicker">STANDARDIZED INPUT</p><h2>Image Processing</h2><p>Retinal extraction, resizing and padding prepare images to 224 × 224.</p></div>
+        </article>
+        <article id="model-training" class="model-info-card">
+          <span class="model-info-number">05</span>
+          <div><p class="model-info-kicker">TRANSFER LEARNING</p><h2>Model Training</h2><p>Two-stage training: classifier adaptation followed by selective fine-tuning.</p></div>
+        </article>
+        <article id="model-performance" class="model-info-card model-performance-card">
+          <span class="model-info-number">06</span>
+          <div><p class="model-info-kicker">APTOS 2019 · 536 UNSEEN TEST IMAGES</p><h2>Performance</h2><p>DR detection accuracy: 96.8% <span aria-hidden="true">·</span> Exact stage accuracy: 75.4% <span aria-hidden="true">·</span> Quadratic weighted kappa: 0.82.</p><p class="model-info-footnote">The detection score measures whether DR is present; stage accuracy measures exact grade prediction.</p></div>
+        </article>
+        <article id="prediction-guide" class="model-info-card model-guide-card">
+          <span class="model-info-number">07</span>
+          <div><p class="model-info-kicker">USING THE DEMO</p><h2>Prediction Guide</h2><p>Open Analysis, upload a retinal image, and review the predicted grade and confidence. The estimate is for research and is not a diagnosis.</p><button class="model-guide-button" type="button" data-view="analysis">Go to image analysis <span aria-hidden="true">→</span></button></div>
+        </article>
+      </div>
+    </section>
+
+  </main>
+  <footer>Computer Vision Coursework · APTOS 2019</footer>
+</body>
+</html>
