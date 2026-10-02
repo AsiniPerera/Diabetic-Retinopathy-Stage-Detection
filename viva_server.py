@@ -24,8 +24,11 @@ REJECTION_LOG = ROOT / 'viva_rejections.jsonl'
 def log_rejection(filename: str, reason: str):
     record = {'time_utc': datetime.now(timezone.utc).isoformat(),
               'filename': Path(filename).name, 'reason': reason}
-    with REJECTION_LOG.open('a', encoding='utf-8') as handle:
-        handle.write(json.dumps(record, ensure_ascii=False) + '\n')
+    try:
+        with REJECTION_LOG.open('a', encoding='utf-8') as handle:
+            handle.write(json.dumps(record, ensure_ascii=False) + '\n')
+    except OSError as exc:
+        print(f'Could not write rejection log: {exc}', file=sys.stderr)
 
 
 class Handler(BaseHTTPRequestHandler):
