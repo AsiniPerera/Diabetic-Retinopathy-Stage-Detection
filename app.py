@@ -34,14 +34,28 @@ iframe { display: block; border: 0; }
 </style>
 """
 
+# Streamlit renders component frames with scrolling="no", so the frame's own
+# viewport cannot scroll. Make <body> the scroll container instead; the sticky
+# header and fixed elements still behave as on the standalone website.
+COMPONENT_SCROLL_CSS = """
+<style>
+html { height: 100%; overflow: hidden; }
+body { height: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+</style>
+"""
+
 
 @st.cache_resource
 def get_predictor() -> TrainedPredictor:
     return TrainedPredictor()
 
 
+WEBSITE_FILES = ("index.html", "styles.css", "polish.css", "design.css", "streamlit_bridge.js", "script.js")
+
+
 @st.cache_resource
-def get_website_component():
+def get_website_component(version: tuple[int, ...]):
+    """Build the component page; `version` (file mtimes) rebuilds it after edits."""
     page = (ROOT / "index.html").read_text(encoding="utf-8")
     page = re.sub(
         r'<link rel="stylesheet" href="([\w.-]+\.css)(?:\?[^"]*)?">',
@@ -53,6 +67,7 @@ def get_website_component():
         f"<script>\n{(ROOT / name).read_text(encoding='utf-8')}\n</script>\n"
         for name in ("streamlit_bridge.js", "script.js")
     )
+    page = page.replace("</head>", COMPONENT_SCROLL_CSS + "</head>")
     page = page.replace("</body>", scripts + "</body>")
     COMPONENT_DIR.mkdir(parents=True, exist_ok=True)
     (COMPONENT_DIR / "index.html").write_text(page, encoding="utf-8")
@@ -88,7 +103,7 @@ def main() -> None:
     )
     st.html(STREAMLIT_CHROME_CSS)
 
-    website = get_website_component()
+    website = get_website_component(tuple((ROOT / name).stat().st_mtime_ns for name in WEBSITE_FILES))
     request = website(response=st.session_state.get("api_response"), key="website", default=None)
     if request and request.get("id") != st.session_state.get("api_request_id"):
         st.session_state["api_request_id"] = request["id"]

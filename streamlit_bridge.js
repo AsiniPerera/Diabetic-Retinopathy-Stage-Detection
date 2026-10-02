@@ -17,6 +17,10 @@
     send('streamlit:setFrameHeight', { height });
   };
 
+  // <body> is the scroll container inside the frame (see app.py), so send
+  // window scrolling there.
+  window.scrollTo = (...args) => document.body.scrollTo(...args);
+
   const toBase64 = blob => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result).split(',', 2)[1] || '');
