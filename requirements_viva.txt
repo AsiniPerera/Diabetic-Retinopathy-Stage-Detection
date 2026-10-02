@@ -1,8 +1,8 @@
---extra-index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://download.pytorch.org/whl/cu128
 numpy>=2.0
 Pillow>=10.1
 opencv-python-headless>=4.10
 scikit-image>=0.24
-torch==2.11.0+cpu
-torchvision==0.26.0+cpu
+torch==2.10.0+cu128
+torchvision==0.25.0+cu128
 reportlab>=5.0,<6

@@ -50,13 +50,14 @@ class TrainedPredictor:
         if checkpoint['run_hash'] != run_hash or checkpoint['selection'] != selection:
             raise RuntimeError('Checkpoint and training identity do not match.')
         torch.set_num_threads(4)
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model = efficientnet_b0(weights=None)
         features = self.model.classifier[1].in_features
         self.model.classifier = nn.Sequential(nn.Dropout(float(identity['config']['dropout'])), nn.Linear(features, 5))
         self.model.load_state_dict(checkpoint['model'], strict=True)
-        self.model.eval()
-        self.mean = torch.tensor([.485, .456, .406]).view(3, 1, 1)
-        self.std = torch.tensor([.229, .224, .225]).view(3, 1, 1)
+        self.model.to(self.device).eval()
+        self.mean = torch.tensor([.485, .456, .406], device=self.device).view(3, 1, 1)
+        self.std = torch.tensor([.229, .224, .225], device=self.device).view(3, 1, 1)
 
     def predict(self, payload, filename):
         started = time.perf_counter()
@@ -235,9 +236,11 @@ class TrainedPredictor:
         tensor = tensor.unsqueeze(0)
         if tensor.shape != (1, 3, 224, 224):
             raise ValueError(f'Unexpected model input shape: {list(tensor.shape)}.')
+        tensor = tensor.to(self.device)
         record_step(11, 'Model input validation',
                     'Check the tensor shape and data type before inference.',
-                    step_started, {'shape': list(tensor.shape), 'dtype': str(tensor.dtype)})
+                    step_started, {'shape': list(tensor.shape), 'dtype': str(tensor.dtype),
+                                   'device': str(tensor.device)})
 
         step_started = time.perf_counter()
         record_step(12, 'Quality-gate routing',
@@ -250,14 +253,16 @@ class TrainedPredictor:
                     }, status='review' if quality['human_review_required'] else 'complete')
 
         step_started = time.perf_counter()
-        with LOCK, torch.inference_mode(), torch.random.fork_rng(devices=[]):
+        cuda_devices = [self.device.index or torch.cuda.current_device()] if self.device.type == 'cuda' else []
+        with LOCK, torch.inference_mode(), torch.random.fork_rng(devices=cuda_devices):
             self.model.eval()
             torch.manual_seed(self.routing['seed'])
             features = self.model.features(tensor)
             features = torch.flatten(self.model.avgpool(features), 1)
             record_step(13, 'EfficientNetB0 feature extraction',
                         'Run the normalized tensor through the trained backbone and global average pooling.',
-                        step_started, {'feature shape': list(features.shape), 'checkpoint sha256': self.checkpoint_hash})
+                        step_started, {'feature shape': list(features.shape), 'device': str(self.device),
+                                       'checkpoint sha256': self.checkpoint_hash})
             step_started = time.perf_counter()
             self.model.classifier[0].train()
             try:
